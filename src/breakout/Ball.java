@@ -1,25 +1,23 @@
 package breakout;
 
 import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.Rectangle;
-
 import breakout.Game;
 import breakout.Block;
 
-public class Ball {
+public class Ball extends Entity {
 
     private Game game;
 
-    public static final int height = 6;
-    public static final int width = 6;
-    int x = Game.WIDTH / 2;
-    int y = 50;
-    int xa = 1;
-    int ya = 1;
+    public double traj = 1.0;
+    public int xa = 1;
+    public int ya = 1;
 
     public Ball(Game game) {
+        this.width = 6;
+        this.height = 6;
+
         this.game = game;
+        this.color = Color.black;
     }
 
     void move() {
@@ -32,14 +30,14 @@ public class Ball {
         if (y + ya > game.getHeight() - width)
             game.gameOver();
         if (paddleCollision()) {
+            y = game.paddle.getTop() - height;
             ya = -1;
-            y = game.paddle.getTop() - width;
         }
 
         for (int i = 0; i < game.blocks.size(); i++) {
             int collisionType = 0;
             Block block = game.blocks.get(i);
-            if (!block.alive())
+            if (!block.alive)
                 continue;
             if (blockCollision(block)) {
                 // 0 = collided with bottom
@@ -66,24 +64,19 @@ public class Ball {
         y += ya;
     }
 
-    public void paint(Graphics2D g) {
-        Color prevColor = g.getColor();
-        g.setColor(Color.WHITE);
-
-        g.fillRect(x, y, width, height);
-
-        g.setColor(prevColor);
+    public void tick() {
+        if (paddleCollision()) {
+            System.out.println("Collision w/ paddle");
+        }
+        move();
     }
 
     private boolean paddleCollision() {
-        return game.paddle.getBounds().intersects(getBounds());
+        // return this.getBounds().intersects(game.paddle.getBounds());
+        return collisionWith(game.paddle);
     }
 
     private boolean blockCollision(Block block) {
-        return block.getBounds().intersects(getBounds());
-    }
-
-    public Rectangle getBounds() {
-        return new Rectangle(x, y, height, width);
+        return block.getBounds().intersects(this.getBounds());
     }
 }

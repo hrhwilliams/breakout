@@ -3,43 +3,47 @@ package breakout;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.List;
-import java.awt.RenderingHints;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-//import java.awt.image.BufferedImage;
-//import java.io.File;
-//import java.io.IOException;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
-// import javax.imageio.ImageIO;
 
 import breakout.Ball;
 import breakout.Paddle;
 import breakout.Block;
+import breakout.InputHandler;
 
+@SuppressWarnings("serial")
 public class Game extends JPanel {
 
-    private static final long serialVersionUID = 1L;
-    public static final int HEIGHT = 300;
-    public static final int WIDTH = 380;
+    public static final int width = 400;
+    public static final int height = 400;
+    private boolean running = true;
 
-    Ball ball = new Ball(this);
-    Paddle paddle = new Paddle(this);
-    List<Block> blocks = new ArrayList<Block>();
+    protected Ball ball;
+    protected Paddle paddle;
+    protected List<Block> blocks;
+    protected InputHandler input;
 
-    private void init() {
-        ball.x = (WIDTH / 2) - (Ball.width / 2);
-        ball.y = Block.width * 4;
-        paddle.x = (WIDTH / 2) - (Paddle.width / 2);
+    public Game() {
+        setFocusable(true);
+    }
 
-//        try {
-//            BufferedImage img = ImageIO.read(new File("/bg.png"));
-//        } catch (IOException e) {
-//            // say uh-oh
-//        }
+    public void init() {
+        final int blockWidth = 20;
+        final int blockHeight = 6;
+
+        input = new InputHandler(this);
+        ball = new Ball(this);
+        paddle = new Paddle(this, input);
+        blocks = new ArrayList<Block>();
+
+        ball.x = (width - ball.width) / 2;
+        ball.y = 100;
+
+        paddle.x = (width - paddle.width) / 2;
 
         Color currColor = Color.red;
         for (int rows = 0; rows < 8; rows++) {
@@ -52,10 +56,58 @@ public class Game extends JPanel {
             if (rows == 6)
                 currColor = Color.blue;
 
-            for (int cols = 0; cols < WIDTH / Block.width; cols++) {
-                blocks.add(new Block(cols * Block.width, rows * Block.height + 10, currColor));
+            for (int cols = 0; cols < (width / blockWidth); cols++) {
+                blocks.add(new Block(cols * blockWidth, rows * blockHeight + 10, currColor));
             }
         }
+    }
+
+    public void run() {
+        long prevTime = System.nanoTime();
+        int ticks = 0;
+        double unprocessedTicks = 0.0;
+        double nsPerTick = 1000000000.0 / 60.0;
+        long lastTimer = System.currentTimeMillis();
+
+        init();
+
+        while (running) {
+            long currentTime = System.nanoTime();
+
+            while (unprocessedTicks < 1) {
+                try {
+                    Thread.sleep(2);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                currentTime = System.nanoTime();
+                unprocessedTicks = (currentTime - prevTime) / nsPerTick;
+            }
+
+            prevTime = currentTime;
+
+            while (unprocessedTicks >= 1) {
+                tick();
+                repaint();
+                unprocessedTicks--;
+                ticks++;
+            }
+
+            long timeDelta = System.currentTimeMillis() - lastTimer;
+            if (timeDelta > 1000) {
+                lastTimer = System.currentTimeMillis();
+                System.out.println("processed " + ticks + " ticks in " + timeDelta + " ms");
+                ticks = 0;
+            }
+        }
+    }
+
+    public void tick() { //
+        ball.tick();
+        paddle.tick();
+
+        blocks.stream().filter(block -> block.alive).forEach(block -> block.tick());
     }
 
     @Override
@@ -69,60 +121,24 @@ public class Game extends JPanel {
         ball.paint(g2d);
         paddle.paint(g2d);
 
-        for (int i = 0; i < blocks.size(); i++) {
-            if (blocks.get(i).alive())
-                blocks.get(i).paint(g2d);
-        }
-    }
-
-    public Game() {
-        addKeyListener(new KeyListener() {
-            @Override
-            public synchronized void keyTyped(KeyEvent e) {
-            }
-
-            @Override
-            public synchronized void keyReleased(KeyEvent e) {
-                paddle.keyReleased(e);
-            }
-
-            @Override
-            public synchronized void keyPressed(KeyEvent e) {
-                paddle.keyPressed(e);
-            }
-        });
-        setFocusable(true);
-        init();
-    }
-
-    private void move() {
-        ball.move();
-        paddle.move();
+        blocks.stream().filter(block -> block.alive).forEach(block -> block.paint(g2d));
     }
 
     public void gameOver() {
-        System.exit(0);
+        System.exit(ABORT);
     }
 
     public static void main(String[] args) throws InterruptedException {
         JFrame frame = new JFrame("Breakout");
         Game game = new Game();
         frame.add(game);
-        frame.setSize(WIDTH, HEIGHT);
-        frame.setVisible(true);
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
+        frame.setSize(width, height);
+        frame.setVisible(true);
         frame.setResizable(false);
 
-        while (true) {
-            game.move();
-            game.repaint();
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException e) {
-
-            }
-        }
+        game.run();
     }
 }
